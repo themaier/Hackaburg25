@@ -5,7 +5,7 @@ let robotState = {
   message: 'OK'
 };
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -23,15 +23,30 @@ export default function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      // Parse request body - handle both parsed and unparsed JSON
-      let body;
-      if (typeof req.body === 'string') {
-        body = JSON.parse(req.body);
-      } else {
-        body = req.body || {};
-      }
+      // Handle different ways Vercel might provide the body
+      let action;
       
-      const { action } = body;
+      try {
+        if (req.body) {
+          // If body is already parsed
+          if (typeof req.body === 'object') {
+            action = req.body.action;
+          } else if (typeof req.body === 'string') {
+            // If body is a string, parse it
+            const parsed = JSON.parse(req.body);
+            action = parsed.action;
+          }
+        }
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        return res.status(400).json({ 
+          error: 'Invalid JSON format',
+          received: req.body 
+        });
+      }
+
+      // Debug log
+      console.log('Received action:', action, 'Body type:', typeof req.body, 'Body:', req.body);
 
       if (action === 'toggle') {
         switch (robotState.state) {
@@ -61,6 +76,12 @@ export default function handler(req, res) {
             robotState.message = 'DDOS successful';
             break;
         }
+      } else {
+        return res.status(400).json({ 
+          error: 'Invalid action',
+          validActions: ['toggle', 'green', 'yellow', 'red'],
+          received: action
+        });
       }
 
       robotState.timestamp = new Date().toISOString();
@@ -77,7 +98,8 @@ export default function handler(req, res) {
     console.error('Function error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     });
   }
 }
