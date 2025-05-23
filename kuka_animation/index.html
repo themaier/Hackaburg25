@@ -99,7 +99,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhic3F0aGpvZ3BzeHp4cXF4d3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5NjAxOTksImV4cCI6MjA2MzUzNjE5OX0.pO96sMafqNuIwpBGuyVJjAzwjUnQgS1p1tRZcR1qO9M';
         const ROBOT_INFO_TABLE = 'robot_info';
         const ROBOT_STATE_TABLE = 'robot_state';
-        const DEVICE_ID = 1; // Device ID to fetch from robot_state
+        const DEFAULT_ROBOT_ID = 1; // Default robot ID to start with
         // =================================================================
 
         // Scene setup
@@ -342,6 +342,7 @@
         let pollInterval;
         let isOnline = false;
         let currentRobotId = null; // Store the robot_id from robot_state
+        let targetRobotId = DEFAULT_ROBOT_ID; // Current robot we're monitoring
 
         // Update robot color
         function updateRobotColor(colorName) {
@@ -375,7 +376,49 @@
             }
         }
 
-        // Fetch robot info based on robot_id
+        // Get available robots and select one dynamically
+        async function getAvailableRobots() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=robot_id&order=robot_id.asc`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    // Get unique robot IDs
+                    const availableRobotIds = [...new Set(data.map(item => item.robot_id))];
+                    console.log('Available robot IDs:', availableRobotIds);
+                    
+                    // Use default if it exists, otherwise use the first available
+                    if (availableRobotIds.includes(DEFAULT_ROBOT_ID)) {
+                        targetRobotId = DEFAULT_ROBOT_ID;
+                    } else {
+                        targetRobotId = availableRobotIds[0];
+                    }
+                    
+                    console.log(`Selected robot ID: ${targetRobotId}`);
+                    return targetRobotId;
+                } else {
+                    console.warn('No robots found in robot_state table');
+                    targetRobotId = DEFAULT_ROBOT_ID;
+                    return targetRobotId;
+                }
+            } catch (error) {
+                console.error('Failed to get available robots:', error);
+                targetRobotId = DEFAULT_ROBOT_ID;
+                return targetRobotId;
+            }
+        }
         async function fetchRobotInfo(robotId) {
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_INFO_TABLE}?select=*&id=eq.${robotId}`, {
@@ -409,7 +452,7 @@
         // Supabase API functions
         async function fetchRobotState() {
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state,robot_id&robot_id=eq.${DEVICE_ID}&limit=1`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state,robot_id&robot_id=eq.${targetRobotId}&limit=1`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -435,11 +478,11 @@
                         console.log('Connected to Supabase');
                     }
                     
-                    // If robot_id changed, fetch new robot info
+                    // If robot_id changed or first time loading, fetch robot info
                     if (robotId !== currentRobotId) {
                         currentRobotId = robotId;
                         await fetchRobotInfo(robotId);
-                        console.log(`Robot ID changed to: ${robotId}`);
+                        console.log(`Robot ID loaded: ${robotId}`);
                     }
                     
                     // Only update if state changed
@@ -449,7 +492,7 @@
                         console.log(`Robot state changed to: ${armState}`);
                     }
                 } else {
-                    console.warn('No state data received from Supabase');
+                    console.warn('No state data received from Supabase for robot ID:', targetRobotId);
                 }
             } catch (error) {
                 console.error('Failed to fetch robot state:', error);
@@ -520,8 +563,9 @@
         }
 
         // Initialize polling when page loads
-        window.addEventListener('load', () => {
-            startStatePolling(); // Start state polling (will fetch robot info automatically)
+        window.addEventListener('load', async () => {
+            await getAvailableRobots(); // First, get available robots and select one
+            startStatePolling(); // Then start state polling
         });
 
         // Clean up when page unloads
