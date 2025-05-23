@@ -1,33 +1,30 @@
+// api/robot-state.js
 let robotState = {
   state: 'green',
   timestamp: new Date().toISOString(),
-  message: 'System Online - Green State'
+  message: 'OK'
 };
 
-exports.handler = async (event, context) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+export default function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   try {
-    if (event.httpMethod === 'GET') {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(robotState)
-      };
+    if (req.method === 'GET') {
+      // Return current state
+      return res.status(200).json(robotState);
     }
 
-    if (event.httpMethod === 'POST') {
-      const body = JSON.parse(event.body || '{}');
-      const { action } = body;
+    if (req.method === 'POST') {
+      // Parse request body
+      const { action } = req.body || {};
 
       if (action === 'toggle') {
         switch (robotState.state) {
@@ -44,27 +41,36 @@ exports.handler = async (event, context) => {
             robotState.message = 'OK';
             break;
         }
+      } else if (['green', 'yellow', 'red'].includes(action)) {
+        robotState.state = action;
+        switch (action) {
+          case 'green':
+            robotState.message = 'OK';
+            break;
+          case 'yellow':
+            robotState.message = 'DDOS started';
+            break;
+          case 'red':
+            robotState.message = 'DDOS successful';
+            break;
+        }
       }
 
       robotState.timestamp = new Date().toISOString();
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ success: true, ...robotState })
-      };
+      return res.status(200).json({ 
+        success: true, 
+        ...robotState 
+      });
     }
 
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
+    // Method not allowed
+    return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Internal server error' })
-    };
+    console.error('Function error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
-};
+}
