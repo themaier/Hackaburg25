@@ -262,7 +262,7 @@
         // Joint 3 (Wrist)
         const wristGroup = new THREE.Group();
         const wristGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.8, 8);
-        const wrist = new THREE.Mesh(wristGeometry, grayMaterial);
+        const wrist = new THREE.Mesh(wristGeometry, wristMaterial);
         wrist.rotation.z = Math.PI / 2;
         wrist.castShadow = true;
         wristGroup.add(wrist);
@@ -285,12 +285,12 @@
 
         // Gripper fingers (larger)
         const fingerGeometry = new THREE.BoxGeometry(0.25, 1.0, 0.15);
-        const finger1 = new THREE.Mesh(fingerGeometry, grayMaterial);
+        const finger1 = new THREE.Mesh(fingerGeometry, fingerMaterial);
         finger1.position.set(0.45, 0.5, 0);
         finger1.castShadow = true;
         endEffectorGroup.add(finger1);
 
-        const finger2 = new THREE.Mesh(fingerGeometry, grayMaterial);
+        const finger2 = new THREE.Mesh(fingerGeometry, fingerMaterial.clone());
         finger2.position.set(-0.45, 0.5, 0);
         finger2.castShadow = true;
         endEffectorGroup.add(finger2);
@@ -478,6 +478,8 @@
                 joint1.material.transparent = false;
                 arm1.material.opacity = 1;
                 arm1.material.transparent = false;
+                joint2.material.opacity = 1;
+                joint2.material.transparent = false;
                 arm2.material.opacity = 1;
                 arm2.material.transparent = false;
                 wrist.material.opacity = 1;
@@ -492,10 +494,12 @@
                 finger2.material.transparent = false;
             } else {
                 // Make all parts except base translucent
-                joint1.material.opacity = 0;
+                joint1.material.opacity = 0.1;
                 joint1.material.transparent = true;
                 arm1.material.opacity = 0;
                 arm1.material.transparent = true;
+                joint2.material.opacity = 0;
+                joint2.material.transparent = true;
                 arm2.material.opacity = 0;
                 arm2.material.transparent = true;
                 wrist.material.opacity = 0;
