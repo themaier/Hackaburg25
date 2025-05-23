@@ -209,7 +209,11 @@
         scene.add(towerGroup);
 
         // Tower Materials
-        const baseMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 }); // Same gray as robot base
+        const baseMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x333333,
+            transparent: true,
+            opacity: 0.8
+        });
         const towerMaterial = new THREE.MeshLambertMaterial({ color: 0xE8A5C4 });
         const treeMaterial = new THREE.MeshLambertMaterial({ color: 0x2D4A7C });
         const doorMaterial = new THREE.MeshBasicMaterial({ color: 0x4A2C7A });
@@ -297,10 +301,10 @@
             towerGroup.add(flag);
         }
 
-        // 5. Eingang/Tor
+        // 5. Eingang/Tor (vorne)
         const doorGeometry = new THREE.BoxGeometry(1.5, 2.5, 0.2);
         const door = new THREE.Mesh(doorGeometry, doorMaterial);
-        door.position.set(0, 1.5, 2.2); // Vorne am Turm, angepasst für breiteren Turm
+        door.position.set(0, 1.5, 2.2); // Vorne am Turm
         towerGroup.add(door);
 
         // Rundbogen über der Tür
@@ -310,11 +314,17 @@
         arch.rotation.z = Math.PI; // Umdrehen für Bogen
         towerGroup.add(arch);
 
-        // Kleines Fenster im Turm
+        // Fenster im Turm (vorne, höher)
         const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.15);
         const towerWindow = new THREE.Mesh(windowGeometry, doorMaterial);
-        towerWindow.position.set(-2.2, 5, 0); // Seitlich am Turm, mittlere Höhe
+        towerWindow.position.set(0, 5.5, 2.2); // Vorne am Turm, höhere Position
         towerGroup.add(towerWindow);
+
+        // Zusätzliches kleines Fenster (seitlich)
+        const sideWindowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.15);
+        const sideWindow = new THREE.Mesh(sideWindowGeometry, doorMaterial);
+        sideWindow.position.set(-2.2, 5, 0); // Seitlich am Turm, mittlere Höhe
+        towerGroup.add(sideWindow);
 
         // 6. Bäume (zufällig auf der Plattform verteilt)
         const treePositions = [
