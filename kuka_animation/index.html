@@ -144,7 +144,16 @@
         // Create separate gray materials for parts that will become translucent
         const joint2Material = new THREE.MeshPhongMaterial({ 
             color: 0x888888,
-            color: 0x404040,
+            shininess: 50
+        });
+
+        const wristMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x888888,
+            shininess: 50
+        });
+
+        const fingerMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x888888,
             shininess: 50
         });
 
@@ -234,7 +243,7 @@
         // Joint 2
         const joint2Group = new THREE.Group();
         const joint2Geometry = new THREE.SphereGeometry(0.5, 12, 8);
-        const joint2 = new THREE.Mesh(joint2Geometry, grayMaterial);
+        const joint2 = new THREE.Mesh(joint2Geometry, joint2Material);
         joint2.castShadow = true;
         joint2Group.add(joint2);
         joint2Group.position.y = 3;
