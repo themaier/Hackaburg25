@@ -23,8 +23,15 @@ export default function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      // Parse request body
-      const { action } = req.body || {};
+      // Parse request body - handle both parsed and unparsed JSON
+      let body;
+      if (typeof req.body === 'string') {
+        body = JSON.parse(req.body);
+      } else {
+        body = req.body || {};
+      }
+      
+      const { action } = body;
 
       if (action === 'toggle') {
         switch (robotState.state) {
