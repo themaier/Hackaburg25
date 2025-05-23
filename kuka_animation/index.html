@@ -32,6 +32,12 @@
             min-width: 200px;
         }
         
+        #robot-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+        }
+        
         #controls {
             position: absolute;
             top: 20px;
@@ -358,7 +364,6 @@
             if (robotInfo) {
                 nameElement.textContent = robotInfo.name || 'Robot Arm';
                 detailsDiv.innerHTML = `
-                    <strong>Color:</strong> ${robotInfo.color || 'N/A'}<br>
                     <strong>Controller:</strong> ${robotInfo.mirco_controller || 'N/A'}<br>
                     <strong>OS:</strong> ${robotInfo.os || 'N/A'}<br>
                     <strong>Info:</strong> ${robotInfo.info || 'N/A'}
