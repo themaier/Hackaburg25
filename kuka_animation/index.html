@@ -141,6 +141,11 @@
             shininess: 50
         });
 
+        // Robot arm positioning parameters
+        const ROBOT_ARM_OFFSET_Y = -0.4; // Adjust this to move entire robot up/down
+        const ROBOT_ARM_OFFSET_X = 0;    // Adjust this to move entire robot left/right
+        const ROBOT_ARM_OFFSET_Z = 0;    // Adjust this to move entire robot forward/back
+        
         // Robot arm components
         const robotArm = new THREE.Group();
         
@@ -150,25 +155,29 @@
         base.position.y = 0.4;
         base.castShadow = true;
         robotArm.add(base);
+        
+        // Apply positioning offsets to entire robot arm
+        robotArm.position.set(ROBOT_ARM_OFFSET_X, ROBOT_ARM_OFFSET_Y, ROBOT_ARM_OFFSET_Z);
+        console.log(`Robot arm positioned at: x=${ROBOT_ARM_OFFSET_X}, y=${ROBOT_ARM_OFFSET_Y}, z=${ROBOT_ARM_OFFSET_Z}`);
 
-        // Joint 1 (Base rotation)
+        // Joint 1 (Base rotation) - FIXED: No gap with base
         const joint1Group = new THREE.Group();
         const joint1Geometry = new THREE.CylinderGeometry(0.8, 0.8, 1.2, 12);
         const joint1 = new THREE.Mesh(joint1Geometry, orangeMaterial);
-        joint1.position.y = 1.4;
+        joint1.position.y = 0.6; // FIXED: Was 1.4, now 0.6 to connect with base
         joint1.castShadow = true;
         joint1Group.add(joint1);
-        joint1Group.position.y = 0.8;
+        joint1Group.position.y = 0.8; // Connects to top of base (y=0.8)
         robotArm.add(joint1Group);
 
-        // Arm segment 1
+        // Arm segment 1 - ADJUSTED: Position relative to new joint1 position
         const arm1Group = new THREE.Group();
         const arm1Geometry = new THREE.BoxGeometry(0.6, 3, 0.6);
         const arm1 = new THREE.Mesh(arm1Geometry, orangeMaterial);
         arm1.position.y = 1.5;
         arm1.castShadow = true;
         arm1Group.add(arm1);
-        arm1Group.position.y = 2;
+        arm1Group.position.y = 1.2; // ADJUSTED: Was 2, now 1.2 to account for joint1 move
         joint1Group.add(arm1Group);
 
         // Joint 2
@@ -304,9 +313,19 @@
         spotLight.castShadow = true;
         scene.add(spotLight);
 
+        // Scene/Camera centering parameters
+        const SCENE_CENTER_X = 0;    // Adjust to move focus point left/right
+        const SCENE_CENTER_Y = 2;    // Adjust to move focus point up/down
+        const SCENE_CENTER_Z = 0;    // Adjust to move focus point forward/back
+        
+        const CAMERA_DISTANCE = 12;  // How far camera is from center
+        const CAMERA_HEIGHT = 6;     // Base camera height
+        
         // Camera position
-        camera.position.set(8, 6, 8);
-        camera.lookAt(0, 3, 0);
+        camera.position.set(8, CAMERA_HEIGHT, 8);
+        camera.lookAt(SCENE_CENTER_X, SCENE_CENTER_Y, SCENE_CENTER_Z);
+        
+        console.log(`Scene centered at: x=${SCENE_CENTER_X}, y=${SCENE_CENTER_Y}, z=${SCENE_CENTER_Z}`);
 
         // Mouse controls
         let mouseX = 0, mouseY = 0;
@@ -624,11 +643,11 @@
             }
 
             // Camera orbit
-            const radius = 12;
-            camera.position.x = Math.cos(targetX * Math.PI) * radius;
-            camera.position.z = Math.sin(targetX * Math.PI) * radius;
-            camera.position.y = 6 + targetY * 4;
-            camera.lookAt(0, 3, 0);
+            const radius = CAMERA_DISTANCE;
+            camera.position.x = Math.cos(targetX * Math.PI) * radius + SCENE_CENTER_X;
+            camera.position.z = Math.sin(targetX * Math.PI) * radius + SCENE_CENTER_Z;
+            camera.position.y = CAMERA_HEIGHT + targetY * 4 + SCENE_CENTER_Y;
+            camera.lookAt(SCENE_CENTER_X, SCENE_CENTER_Y, SCENE_CENTER_Z);
 
             renderer.render(scene, camera);
         }
