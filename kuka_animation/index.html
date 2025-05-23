@@ -341,6 +341,7 @@
         // Supabase Management Variables
         let pollInterval;
         let isOnline = false;
+        let currentRobotId = null; // Store the robot_id from robot_state
 
         // Update robot color
         function updateRobotColor(colorName) {
@@ -374,10 +375,10 @@
             }
         }
 
-        // Fetch robot info
-        async function fetchRobotInfo() {
+        // Fetch robot info based on robot_id
+        async function fetchRobotInfo(robotId) {
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_INFO_TABLE}?select=*&id=eq.${DEVICE_ID}`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_INFO_TABLE}?select=*&id=eq.${robotId}`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -398,7 +399,7 @@
                     updateRobotInfoDisplay(robotData);
                     console.log('Robot info loaded:', robotData);
                 } else {
-                    console.warn('No robot info found for device ID:', DEVICE_ID);
+                    console.warn('No robot info found for robot ID:', robotId);
                 }
             } catch (error) {
                 console.error('Failed to fetch robot info:', error);
@@ -408,7 +409,7 @@
         // Supabase API functions
         async function fetchRobotState() {
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state&robot_id=eq.${DEVICE_ID}&limit=1`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state,robot_id&robot_id=eq.${DEVICE_ID}&limit=1`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -424,12 +425,21 @@
                 const data = await response.json();
                 
                 if (data && data.length > 0) {
-                    const newState = data[0].state;
+                    const stateData = data[0];
+                    const newState = stateData.state;
+                    const robotId = stateData.robot_id;
                     
                     // Update online status
                     if (!isOnline) {
                         isOnline = true;
                         console.log('Connected to Supabase');
+                    }
+                    
+                    // If robot_id changed, fetch new robot info
+                    if (robotId !== currentRobotId) {
+                        currentRobotId = robotId;
+                        await fetchRobotInfo(robotId);
+                        console.log(`Robot ID changed to: ${robotId}`);
                     }
                     
                     // Only update if state changed
@@ -511,8 +521,7 @@
 
         // Initialize polling when page loads
         window.addEventListener('load', () => {
-            fetchRobotInfo(); // Load robot info first
-            startStatePolling(); // Then start state polling
+            startStatePolling(); // Start state polling (will fetch robot info automatically)
         });
 
         // Clean up when page unloads
