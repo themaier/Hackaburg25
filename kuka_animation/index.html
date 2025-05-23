@@ -28,12 +28,12 @@
             padding: 15px;
             border-radius: 10px;
             z-index: 100;
-            font-size: 12px;
+            font-size: 16px;
             min-width: 200px;
         }
         
         #robot-name {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             margin: 0 0 10px 0;
         }
@@ -109,7 +109,7 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x111111);
+        renderer.setClearColor(0x87CEEB); // Sky blue background
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.getElementById('container').appendChild(renderer.domElement);
@@ -141,6 +141,50 @@
             shininess: 50
         });
 
+        // Connector material (same as main robot color)
+        let connectorMaterial = new THREE.MeshPhongMaterial({ 
+            color: currentRobotColor,
+            shininess: 30
+        });
+
+        // Create striped material for joint1
+        function createStripedMaterial(baseColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+            
+            // Fill with base color
+            context.fillStyle = `#${baseColor.toString(16).padStart(6, '0')}`;
+            context.fillRect(0, 0, 256, 64);
+            
+            // Add clean vertical stripes (6 stripes total)
+            context.fillStyle = '#000000';
+            const stripeWidth = 4;
+            const totalStripes = 6;
+            const stripeSpacing = 256 / totalStripes;
+            
+            for (let i = 0; i < totalStripes; i++) {
+                const x = i * stripeSpacing + (stripeSpacing - stripeWidth) / 2;
+                context.fillRect(x, 0, stripeWidth, 64);
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.repeat.set(1, 1);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
+            
+            return new THREE.MeshPhongMaterial({
+                map: texture,
+                shininess: 30
+            });
+        }
+
+        // Create initial striped material
+        let stripedMaterial = createStripedMaterial(currentRobotColor);
+
         // Robot arm positioning parameters
         const ROBOT_ARM_OFFSET_Y = -0.4; // Adjust this to move entire robot up/down
         const ROBOT_ARM_OFFSET_X = 0;    // Adjust this to move entire robot left/right
@@ -160,10 +204,10 @@
         robotArm.position.set(ROBOT_ARM_OFFSET_X, ROBOT_ARM_OFFSET_Y, ROBOT_ARM_OFFSET_Z);
         console.log(`Robot arm positioned at: x=${ROBOT_ARM_OFFSET_X}, y=${ROBOT_ARM_OFFSET_Y}, z=${ROBOT_ARM_OFFSET_Z}`);
 
-        // Joint 1 (Base rotation) - FIXED: No gap with base
+        // Joint 1 (Base rotation) - FIXED: No gap with base - NOW WITH STRIPES
         const joint1Group = new THREE.Group();
         const joint1Geometry = new THREE.CylinderGeometry(0.8, 0.8, 1.2, 12);
-        const joint1 = new THREE.Mesh(joint1Geometry, orangeMaterial);
+        const joint1 = new THREE.Mesh(joint1Geometry, stripedMaterial);
         joint1.position.y = 0.6; // FIXED: Was 1.4, now 0.6 to connect with base
         joint1.castShadow = true;
         joint1Group.add(joint1);
@@ -209,6 +253,13 @@
         wristGroup.position.y = 2.5;
         arm2Group.add(wristGroup);
 
+        // Connector between wrist and gripper (same color as robot)
+        const connectorGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.8, 8);
+        const connector = new THREE.Mesh(connectorGeometry, connectorMaterial);
+        connector.position.y = 0.65;
+        connector.castShadow = true;
+        wristGroup.add(connector);
+
         // End effector (larger gripper)
         const endEffectorGroup = new THREE.Group();
         const gripperBase = new THREE.BoxGeometry(1.2, 0.5, 0.6);
@@ -233,8 +284,8 @@
 
         scene.add(robotArm);
 
-        // Store colored parts for easy updating
-        const coloredParts = [joint1, arm1, arm2, gripperBaseMesh];
+        // Store colored parts for easy updating (including connector)
+        const coloredParts = [arm1, arm2, gripperBaseMesh, connector];
 
         // LED Status Lights on ground
         const ledGroup = new THREE.Group();
@@ -369,8 +420,15 @@
             const newColor = colorMap[colorName.toLowerCase()] || colorMap['orange'];
             currentRobotColor = newColor;
             
-            // Update material color
+            // Update material color for regular orange parts
             orangeMaterial.color.setHex(newColor);
+            
+            // Update connector material color
+            connectorMaterial.color.setHex(newColor);
+            
+            // Update striped material for joint1
+            stripedMaterial = createStripedMaterial(newColor);
+            joint1.material = stripedMaterial;
             
             // Update spotlight color
             spotLight.color.setHex(newColor);
