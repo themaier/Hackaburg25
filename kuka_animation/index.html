@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Arm</title>
+    <title>Robot Arm with Tower</title>
     <style>
         body {
             margin: 0;
@@ -201,6 +201,141 @@
         // Create initial striped material
         let stripedMaterial = createStripedMaterial(currentRobotColor);
 
+        // ==================== TOWER CREATION ====================
+        // Tower Group (positioned in the background)
+        const towerGroup = new THREE.Group();
+        towerGroup.position.set(0, -1, -15); // Background position, centered and lower
+        towerGroup.scale.set(0.8, 0.8, 0.8); // Make it smaller so it doesn't dominate
+        scene.add(towerGroup);
+
+        // Tower Materials
+        const baseMaterial = new THREE.MeshLambertMaterial({ color: 0x2D1B69 });
+        const towerMaterial = new THREE.MeshLambertMaterial({ color: 0xE8A5C4 });
+        const treeMaterial = new THREE.MeshLambertMaterial({ color: 0x2D4A7C });
+        const doorMaterial = new THREE.MeshBasicMaterial({ color: 0x4A2C7A });
+        const poleMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const flagMaterial = new THREE.MeshLambertMaterial({ color: 0xD4B8FF });
+
+        // 1. Basis-Plattform (Rechteck um 45° gedreht)
+        const baseGeometry = new THREE.BoxGeometry(10, 0.5, 10);
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.rotation.y = Math.PI / 4; // 45° rotation
+        base.receiveShadow = true;
+        towerGroup.add(base);
+
+        // 2. Hauptturm (Rechteckiger Turm, verjüngt)
+        const towerBottomGeometry = new THREE.BoxGeometry(4, 8, 4);
+        const towerBottom = new THREE.Mesh(towerBottomGeometry, towerMaterial);
+        towerBottom.position.y = 4.25; // Basis-Höhe + halbe Turm-Höhe
+        towerBottom.rotation.y = Math.PI / 4; // 45° rotation
+        towerBottom.castShadow = true;
+        towerGroup.add(towerBottom);
+
+        // Turm-Spitze (breiter als der Turm darunter)
+        const towerTopGeometry = new THREE.BoxGeometry(5, 1, 5);
+        const towerTop = new THREE.Mesh(towerTopGeometry, towerMaterial);
+        towerTop.position.y = 8.75;
+        towerTop.rotation.y = Math.PI / 4;
+        towerTop.castShadow = true;
+        towerGroup.add(towerTop);
+
+        // 3. Zinnen (mehr und dünner)
+        const battlementGeometry = new THREE.BoxGeometry(0.5, 0.9, 0.5);
+        const battlementPositions = [
+            // Ecken
+            { x: 2, z: 2 },
+            { x: -2, z: 2 },
+            { x: 2, z: -2 },
+            { x: -2, z: -2 },
+            // Seitenmitte
+            { x: 2.3, z: 0 },
+            { x: -2.3, z: 0 },
+            { x: 0, z: 2.3 },
+            { x: 0, z: -2.3 },
+            // Zusätzliche Zinnen für mehr Dichte
+            { x: 2.3, z: 1.2 },
+            { x: 2.3, z: -1.2 },
+            { x: -2.3, z: 1.2 },
+            { x: -2.3, z: -1.2 },
+            { x: 1.2, z: 2.3 },
+            { x: -1.2, z: 2.3 },
+            { x: 1.2, z: -2.3 },
+            { x: -1.2, z: -2.3 }
+        ];
+
+        let tallestBattlement = null;
+        let maxHeight = -Infinity;
+
+        battlementPositions.forEach((pos, index) => {
+            const battlement = new THREE.Mesh(battlementGeometry, towerMaterial);
+            battlement.position.set(pos.x, 9.65, pos.z); // Niedriger positioniert
+            battlement.castShadow = true;
+            towerGroup.add(battlement);
+            
+            // Finde die höchste Zinne für die Fahne
+            if (battlement.position.y > maxHeight) {
+                maxHeight = battlement.position.y;
+                tallestBattlement = battlement;
+            }
+        });
+
+        // 4. Fahne (auf der ersten Eck-Zinne)
+        if (tallestBattlement) {
+            // Fahnenstange
+            const poleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2);
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.copy(tallestBattlement.position);
+            pole.position.y += 1.5; // Niedriger über der Zinne
+            towerGroup.add(pole);
+
+            // Fahne
+            const flagGeometry = new THREE.BoxGeometry(1.5, 1, 0.05);
+            const flag = new THREE.Mesh(flagGeometry, flagMaterial);
+            flag.position.copy(pole.position);
+            flag.position.x -= 0.75; // Weiter nach links verschoben
+            flag.position.y += 0.2; // Etwas nach oben verschoben
+            towerGroup.add(flag);
+        }
+
+        // 5. Eingang/Tor
+        const doorGeometry = new THREE.BoxGeometry(1.5, 2.5, 0.2);
+        const door = new THREE.Mesh(doorGeometry, doorMaterial);
+        door.position.set(0, 1.5, 2.2); // Vorne am Turm, angepasst für breiteren Turm
+        towerGroup.add(door);
+
+        // Rundbogen über der Tür
+        const archGeometry = new THREE.CylinderGeometry(0.75, 0.75, 0.2, 16, 1, false, 0, Math.PI);
+        const arch = new THREE.Mesh(archGeometry, doorMaterial);
+        arch.position.set(0, 2.5, 2.2);
+        arch.rotation.z = Math.PI; // Umdrehen für Bogen
+        towerGroup.add(arch);
+
+        // Kleines Fenster im Turm
+        const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.15);
+        const towerWindow = new THREE.Mesh(windowGeometry, doorMaterial);
+        towerWindow.position.set(-2.2, 5, 0); // Seitlich am Turm, mittlere Höhe
+        towerGroup.add(towerWindow);
+
+        // 6. Bäume (zufällig auf der Plattform verteilt)
+        const treePositions = [
+            { x: 3, z: 3 },
+            { x: -3.5, z: 2 },
+            { x: 2.5, z: -3 },
+            { x: -2, z: -3.5 },
+            { x: 4, z: -1 },
+            { x: -4, z: 1 }
+        ];
+
+        treePositions.forEach(pos => {
+            const treeHeight = 1 + Math.random() * 1; // Zufällige Höhe 1-2
+            const treeGeometry = new THREE.ConeGeometry(0.5, treeHeight, 8);
+            const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+            tree.position.set(pos.x, 0.25 + treeHeight/2, pos.z);
+            tree.castShadow = true;
+            towerGroup.add(tree);
+        });
+
+        // ==================== ROBOT ARM CREATION ====================
         // Robot arm positioning parameters
         const ROBOT_ARM_OFFSET_Y = -0.4; // Adjust this to move entire robot up/down
         const ROBOT_ARM_OFFSET_X = 0;    // Adjust this to move entire robot left/right
@@ -210,11 +345,11 @@
         const robotArm = new THREE.Group();
         
         // Base
-        const baseGeometry = new THREE.CylinderGeometry(1.5, 2, 0.8, 16);
-        const base = new THREE.Mesh(baseGeometry, grayMaterial);
-        base.position.y = 0.4;
-        base.castShadow = true;
-        robotArm.add(base);
+        const robotBaseGeometry = new THREE.CylinderGeometry(1.5, 2, 0.8, 16);
+        const robotBase = new THREE.Mesh(robotBaseGeometry, grayMaterial);
+        robotBase.position.y = 0.4;
+        robotBase.castShadow = true;
+        robotArm.add(robotBase);
         
         // Apply positioning offsets to entire robot arm
         robotArm.position.set(ROBOT_ARM_OFFSET_X, ROBOT_ARM_OFFSET_Y, ROBOT_ARM_OFFSET_Z);
@@ -749,7 +884,18 @@
             requestAnimationFrame(animate);
             time += 0.01;
 
-            // Only animate if robot is connected
+            // Tower flag animation
+            if (tallestBattlement) {
+                const flag = towerGroup.children.find(child => 
+                    child.geometry instanceof THREE.BoxGeometry && 
+                    child.material === flagMaterial
+                );
+                if (flag) {
+                    flag.rotation.z = Math.sin(time * 5) * 0.1;
+                }
+            }
+
+            // Only animate robot if robot is connected
             if (currentRobotId !== null && currentRobotId !== undefined) {
                 if (animationEnabled && armState !== 'red') {
                     // Normal operation (green and yellow states)
