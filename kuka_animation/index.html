@@ -41,6 +41,19 @@
             z-index: 100;
             font-size: 14px;
         }
+
+        #robot-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 12px;
+            min-width: 200px;
+        }
         
         button {
             background: #ff6600;
@@ -78,8 +91,15 @@
             </div>
         </div>
         
+        <div id="robot-info">
+            <h4>Robot Information</h4>
+            <div id="robot-details">
+                Loading robot data...
+            </div>
+        </div>
+        
         <div id="info">
-            <strong>KUKA Orange Robot Arm</strong><br>
+            <strong>KUKA Robot Arm</strong><br>
             Mouse: Orbit camera | Scroll: Zoom
         </div>
     </div>
@@ -87,11 +107,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         // ==================== SUPABASE CONFIGURATION ====================
-        // Fill these in with your Supabase project details
         const SUPABASE_URL = 'https://hbsqthjogpsxzxqqxwxb.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhic3F0aGpvZ3BzeHp4cXF4d3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5NjAxOTksImV4cCI6MjA2MzUzNjE5OX0.pO96sMafqNuIwpBGuyVJjAzwjUnQgS1p1tRZcR1qO9M';
-        const TABLE_NAME = 'robot_value'; // Your table name
-        const STATE_COLUMN = 'state'; // Column that contains 'green', 'yellow', or 'red'
+        const ROBOT_INFO_TABLE = 'robot_info';
+        const ROBOT_STATE_TABLE = 'robot_state';
+        const DEVICE_ID = 1; // Device ID to fetch from robot_state
         // =================================================================
 
         // Scene setup
@@ -105,18 +125,30 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.getElementById('container').appendChild(renderer.domElement);
 
-        // KUKA Orange color
-        const kukaOrange = new THREE.Color(0xff6600);
-        const kukaGray = new THREE.Color(0x404040);
+        // Color mapping
+        const colorMap = {
+            'orange': 0xff6600,
+            'white': 0xffffff,
+            'red': 0xff0000,
+            'blue': 0x0066ff,
+            'green': 0x00ff00,
+            'black': 0x000000,
+            'gray': 0x808080,
+            'yellow': 0xffff00
+        };
+
+        // Robot data
+        let robotData = null;
+        let currentRobotColor = 0xff6600; // Default orange
         
-        // Materials
-        const orangeMaterial = new THREE.MeshPhongMaterial({ 
-            color: kukaOrange,
+        // Materials (will be updated based on robot color)
+        let orangeMaterial = new THREE.MeshPhongMaterial({ 
+            color: currentRobotColor,
             shininess: 30
         });
         
         const grayMaterial = new THREE.MeshPhongMaterial({ 
-            color: kukaGray,
+            color: 0x404040,
             shininess: 50
         });
 
@@ -203,6 +235,9 @@
 
         scene.add(robotArm);
 
+        // Store colored parts for easy updating
+        const coloredParts = [joint1, arm1, arm2, gripperBaseMesh];
+
         // LED Status Lights on ground
         const ledGroup = new THREE.Group();
         
@@ -274,7 +309,7 @@
         scene.add(directionalLight);
 
         // Spotlight for dramatic effect
-        const spotLight = new THREE.SpotLight(kukaOrange, 0.5);
+        const spotLight = new THREE.SpotLight(currentRobotColor, 0.5);
         spotLight.position.set(-5, 8, 3);
         spotLight.target = robotArm;
         spotLight.castShadow = true;
@@ -319,10 +354,40 @@
         let pollInterval;
         let isOnline = false;
 
-        // Supabase API functions
-        async function fetchRobotState() {
+        // Update robot color
+        function updateRobotColor(colorName) {
+            const newColor = colorMap[colorName.toLowerCase()] || colorMap['orange'];
+            currentRobotColor = newColor;
+            
+            // Update material color
+            orangeMaterial.color.setHex(newColor);
+            
+            // Update spotlight color
+            spotLight.color.setHex(newColor);
+            
+            console.log(`Robot color updated to: ${colorName} (${newColor.toString(16)})`);
+        }
+
+        // Update robot info display
+        function updateRobotInfoDisplay(robotInfo) {
+            const detailsDiv = document.getElementById('robot-details');
+            if (robotInfo) {
+                detailsDiv.innerHTML = `
+                    <strong>Name:</strong> ${robotInfo.name || 'N/A'}<br>
+                    <strong>Color:</strong> ${robotInfo.color || 'N/A'}<br>
+                    <strong>Controller:</strong> ${robotInfo.mirco_controller || 'N/A'}<br>
+                    <strong>OS:</strong> ${robotInfo.os || 'N/A'}<br>
+                    <strong>Info:</strong> ${robotInfo.info || 'N/A'}
+                `;
+            } else {
+                detailsDiv.innerHTML = 'No robot data available';
+            }
+        }
+
+        // Fetch robot info
+        async function fetchRobotInfo() {
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=${STATE_COLUMN}&limit=1`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_INFO_TABLE}?select=*&id=eq.${DEVICE_ID}`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -338,7 +403,38 @@
                 const data = await response.json();
                 
                 if (data && data.length > 0) {
-                    const newState = data[0][STATE_COLUMN];
+                    robotData = data[0];
+                    updateRobotColor(robotData.color);
+                    updateRobotInfoDisplay(robotData);
+                    console.log('Robot info loaded:', robotData);
+                } else {
+                    console.warn('No robot info found for device ID:', DEVICE_ID);
+                }
+            } catch (error) {
+                console.error('Failed to fetch robot info:', error);
+            }
+        }
+
+        // Supabase API functions
+        async function fetchRobotState() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state&robot_id=eq.${DEVICE_ID}&limit=1`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const newState = data[0].state;
                     
                     // Update online status
                     if (!isOnline) {
@@ -353,7 +449,7 @@
                         console.log(`Robot state changed to: ${armState}`);
                     }
                 } else {
-                    console.warn('No data received from Supabase');
+                    console.warn('No state data received from Supabase');
                 }
             } catch (error) {
                 console.error('Failed to fetch robot state:', error);
@@ -410,7 +506,7 @@
 
         // Start polling for state changes
         function startStatePolling() {
-            // Poll every 3 seconds
+            // Poll every 2 seconds
             pollInterval = setInterval(fetchRobotState, 2000);
             // Fetch immediately
             fetchRobotState();
@@ -425,7 +521,8 @@
 
         // Initialize polling when page loads
         window.addEventListener('load', () => {
-            startStatePolling();
+            fetchRobotInfo(); // Load robot info first
+            startStatePolling(); // Then start state polling
         });
 
         // Clean up when page unloads
