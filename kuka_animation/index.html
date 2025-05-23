@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUKA Robot Arm</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #ff6600;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        
+        button:hover {
+            background: #e55a00;
+        }
+        
+        .green-btn { background: #00aa00 !important; }
+        .yellow-btn { background: #ffaa00 !important; }
+        .red-btn { background: #aa0000 !important; }
+        
+        .green-btn:hover { background: #008800 !important; }
+        .yellow-btn:hover { background: #dd8800 !important; }
+        .red-btn:hover { background: #880000 !important; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <h3>KUKA Robot Arm</h3>
+            <div style="margin-top: 10px; font-size: 12px;">
+                <strong>Status:</strong><br>
+                🟢 Green: OK<br>
+                🟡 Yellow: DDOS started<br>
+                🔴 Red: DDOS successful
+            </div>
+        </div>
+        
+        <div id="info">
+            <strong>KUKA Orange Robot Arm</strong><br>
+            Mouse: Orbit camera | Scroll: Zoom
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x111111);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // KUKA Orange color
+        const kukaOrange = new THREE.Color(0xff6600);
+        const kukaGray = new THREE.Color(0x404040);
+        
+        // Materials
+        const orangeMaterial = new THREE.MeshPhongMaterial({ 
+            color: kukaOrange,
+            shininess: 30
+        });
+        
+        const grayMaterial = new THREE.MeshPhongMaterial({ 
+            color: kukaGray,
+            shininess: 50
+        });
+
+        // Robot arm components
+        const robotArm = new THREE.Group();
+        
+        // Base
+        const baseGeometry = new THREE.CylinderGeometry(1.5, 2, 0.8, 16);
+        const base = new THREE.Mesh(baseGeometry, grayMaterial);
+        base.position.y = 0.4;
+        base.castShadow = true;
+        robotArm.add(base);
+
+        // Joint 1 (Base rotation)
+        const joint1Group = new THREE.Group();
+        const joint1Geometry = new THREE.CylinderGeometry(0.8, 0.8, 1.2, 12);
+        const joint1 = new THREE.Mesh(joint1Geometry, orangeMaterial);
+        joint1.position.y = 1.4;
+        joint1.castShadow = true;
+        joint1Group.add(joint1);
+        joint1Group.position.y = 0.8;
+        robotArm.add(joint1Group);
+
+        // Arm segment 1
+        const arm1Group = new THREE.Group();
+        const arm1Geometry = new THREE.BoxGeometry(0.6, 3, 0.6);
+        const arm1 = new THREE.Mesh(arm1Geometry, orangeMaterial);
+        arm1.position.y = 1.5;
+        arm1.castShadow = true;
+        arm1Group.add(arm1);
+        arm1Group.position.y = 2;
+        joint1Group.add(arm1Group);
+
+        // Joint 2
+        const joint2Group = new THREE.Group();
+        const joint2Geometry = new THREE.SphereGeometry(0.5, 12, 8);
+        const joint2 = new THREE.Mesh(joint2Geometry, grayMaterial);
+        joint2.castShadow = true;
+        joint2Group.add(joint2);
+        joint2Group.position.y = 3;
+        arm1Group.add(joint2Group);
+
+        // Arm segment 2
+        const arm2Group = new THREE.Group();
+        const arm2Geometry = new THREE.BoxGeometry(0.5, 2.5, 0.5);
+        const arm2 = new THREE.Mesh(arm2Geometry, orangeMaterial);
+        arm2.position.y = 1.25;
+        arm2.castShadow = true;
+        arm2Group.add(arm2);
+        arm2Group.position.y = 0;
+        joint2Group.add(arm2Group);
+
+        // Joint 3 (Wrist)
+        const wristGroup = new THREE.Group();
+        const wristGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.8, 8);
+        const wrist = new THREE.Mesh(wristGeometry, grayMaterial);
+        wrist.rotation.z = Math.PI / 2;
+        wrist.castShadow = true;
+        wristGroup.add(wrist);
+        wristGroup.position.y = 2.5;
+        arm2Group.add(wristGroup);
+
+        // End effector (larger gripper)
+        const endEffectorGroup = new THREE.Group();
+        const gripperBase = new THREE.BoxGeometry(1.2, 0.5, 0.6);
+        const gripperBaseMesh = new THREE.Mesh(gripperBase, orangeMaterial);
+        gripperBaseMesh.castShadow = true;
+        endEffectorGroup.add(gripperBaseMesh);
+
+        // Gripper fingers (larger)
+        const fingerGeometry = new THREE.BoxGeometry(0.25, 1.0, 0.15);
+        const finger1 = new THREE.Mesh(fingerGeometry, grayMaterial);
+        finger1.position.set(0.45, 0.5, 0);
+        finger1.castShadow = true;
+        endEffectorGroup.add(finger1);
+
+        const finger2 = new THREE.Mesh(fingerGeometry, grayMaterial);
+        finger2.position.set(-0.45, 0.5, 0);
+        finger2.castShadow = true;
+        endEffectorGroup.add(finger2);
+
+        endEffectorGroup.position.y = 0.8;
+        wristGroup.add(endEffectorGroup);
+
+        scene.add(robotArm);
+
+        // LED Status Lights on ground
+        const ledGroup = new THREE.Group();
+        
+        // Green LED
+        const greenLedGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
+        const greenLedMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x00ff00,
+            emissive: 0x004400,
+            transparent: true,
+            opacity: 0.8
+        });
+        const greenLed = new THREE.Mesh(greenLedGeometry, greenLedMaterial);
+        greenLed.position.set(-2, 0.05, 3);
+        ledGroup.add(greenLed);
+
+        // Yellow LED
+        const yellowLedGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
+        const yellowLedMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffff00,
+            emissive: 0x444400,
+            transparent: true,
+            opacity: 0.3
+        });
+        const yellowLed = new THREE.Mesh(yellowLedGeometry, yellowLedMaterial);
+        yellowLed.position.set(0, 0.05, 3);
+        ledGroup.add(yellowLed);
+
+        // Red LED
+        const redLedGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
+        const redLedMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xff0000,
+            emissive: 0x440000,
+            transparent: true,
+            opacity: 0.3
+        });
+        const redLed = new THREE.Mesh(redLedGeometry, redLedMaterial);
+        redLed.position.set(2, 0.05, 3);
+        ledGroup.add(redLed);
+
+        scene.add(ledGroup);
+
+        // Ground plane
+        const groundGeometry = new THREE.PlaneGeometry(20, 20);
+        const groundMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x333333,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.left = -10;
+        directionalLight.shadow.camera.right = 10;
+        directionalLight.shadow.camera.top = 10;
+        directionalLight.shadow.camera.bottom = -10;
+        scene.add(directionalLight);
+
+        // Spotlight for dramatic effect
+        const spotLight = new THREE.SpotLight(kukaOrange, 0.5);
+        spotLight.position.set(-5, 8, 3);
+        spotLight.target = robotArm;
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+        // Camera position
+        camera.position.set(8, 6, 8);
+        camera.lookAt(0, 3, 0);
+
+        // Mouse controls
+        let mouseX = 0, mouseY = 0;
+        let targetX = 0, targetY = 0;
+        
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+            targetX = mouseX * 0.5;
+            targetY = mouseY * 0.5;
+        });
+
+        // Zoom with mouse wheel
+        document.addEventListener('wheel', (event) => {
+            const zoom = event.deltaY * 0.01;
+            camera.position.multiplyScalar(1 + zoom);
+        });
+
+        // Animation variables
+        let animationEnabled = true;
+        let time = 0;
+        let armState = 'green'; // 'green', 'yellow', 'red'
+        let apiCallCount = 0;
+        let armFallAnimation = 0;
+        let originalRotations = {
+            joint1Y: 0,
+            arm1Z: 0.2,
+            joint2Z: 0,
+            arm2Z: 0,
+            wristX: 0,
+            wristY: 0
+        };
+
+        // API Management Variables
+        let pollInterval;
+        let isOnline = false;
+
+        // API State Management
+        function updateArmState() {
+            switch(armState) {
+                case 'green':
+                    // Green LED bright, others dim
+                    greenLedMaterial.opacity = 0.9;
+                    greenLedMaterial.emissive.setHex(0x004400);
+                    yellowLedMaterial.opacity = 0.3;
+                    yellowLedMaterial.emissive.setHex(0x111100);
+                    redLedMaterial.opacity = 0.3;
+                    redLedMaterial.emissive.setHex(0x110000);
+                    animationEnabled = true;
+                    armFallAnimation = 0;
+                    break;
+                    
+                case 'yellow':
+                    // Yellow LED bright, others dim
+                    greenLedMaterial.opacity = 0.3;
+                    greenLedMaterial.emissive.setHex(0x001100);
+                    yellowLedMaterial.opacity = 0.9;
+                    yellowLedMaterial.emissive.setHex(0x444400);
+                    redLedMaterial.opacity = 0.3;
+                    redLedMaterial.emissive.setHex(0x110000);
+                    animationEnabled = true;
+                    armFallAnimation = 0;
+                    break;
+                    
+                case 'red':
+                    // Red LED bright, others dim
+                    greenLedMaterial.opacity = 0.3;
+                    greenLedMaterial.emissive.setHex(0x001100);
+                    yellowLedMaterial.opacity = 0.3;
+                    yellowLedMaterial.emissive.setHex(0x111100);
+                    redLedMaterial.opacity = 0.9;
+                    redLedMaterial.emissive.setHex(0x440000);
+                    animationEnabled = false;
+                    // Start fall animation
+                    if (armFallAnimation === 0) {
+                        armFallAnimation = 0.01;
+                    }
+                    break;
+            }
+        }
+
+        // Start polling for state changes
+        function startStatePolling() {
+            // Poll every 2 seconds
+            pollInterval = setInterval(fetchCurrentState, 2000);
+            // Fetch immediately
+            fetchCurrentState();
+        }
+
+        // Stop polling
+        function stopStatePolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+        }
+
+        // Fetch current state from backend
+        async function fetchCurrentState() {
+            try {
+                const response = await fetch('/.netlify/functions/robot-state');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update online status
+                    if (!isOnline) {
+                        isOnline = true;
+                        updateConnectionStatus(true);
+                    }
+                    
+                    // Only update if state changed
+                    if (data.state !== armState) {
+                        armState = data.state;
+                        updateStatus(data.message);
+                        updateArmState();
+                    }
+                } else {
+                    throw new Error('API response not ok');
+                }
+            } catch (error) {
+                console.error('Failed to fetch state:', error);
+                if (isOnline) {
+                    isOnline = false;
+                    updateConnectionStatus(false);
+                    updateStatus('Connection Error - Using local state');
+                }
+            }
+        }
+
+        // Call API to change state
+        async function callAPI() {
+            try {
+                const response = await fetch('/.netlify/functions/robot-state', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: 'toggle' })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    armState = data.state;
+                    updateStatus(data.message);
+                    updateArmState();
+                    
+                    if (!isOnline) {
+                        isOnline = true;
+                        updateConnectionStatus(true);
+                    }
+                } else {
+                    throw new Error('API call failed');
+                }
+            } catch (error) {
+                console.error('API call failed:', error);
+                updateStatus('API Error - Check connection');
+                
+                if (isOnline) {
+                    isOnline = false;
+                    updateConnectionStatus(false);
+                }
+                
+                // Fallback to local state cycling
+                apiCallCount++;
+                if (apiCallCount === 1) {
+                    armState = 'yellow';
+                    updateStatus('Local Mode: Yellow State');
+                } else if (apiCallCount === 2) {
+                    armState = 'red';
+                    updateStatus('Local Mode: Red State');
+                } else {
+                    apiCallCount = 0;
+                    armState = 'green';
+                    updateStatus('Local Mode: Green State');
+                }
+                updateArmState();
+            }
+        }
+
+        // Add manual state controls
+        async function setRobotState(state) {
+            try {
+                const response = await fetch('/.netlify/functions/robot-state', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: state })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    armState = data.state;
+                    updateStatus(data.message);
+                    updateArmState();
+                    
+                    if (!isOnline) {
+                        isOnline = true;
+                        updateConnectionStatus(true);
+                    }
+                } else {
+                    throw new Error('Set state failed');
+                }
+            } catch (error) {
+                console.error('Failed to set state:', error);
+                updateStatus('Failed to set state - Connection error');
+                
+                if (isOnline) {
+                    isOnline = false;
+                    updateConnectionStatus(false);
+                }
+            }
+        }
+
+        function updateStatus(message) {
+            const statusElement = document.getElementById('api-status');
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+        }
+
+        function updateConnectionStatus(online) {
+            const connectionElement = document.getElementById('connection-status');
+            if (connectionElement) {
+                connectionElement.textContent = online ? '🟢 Online Mode' : '🔴 Offline Mode';
+            }
+        }
+
+        // Initialize polling when page loads
+        window.addEventListener('load', () => {
+            startStatePolling();
+        });
+
+        // Clean up when page unloads
+        window.addEventListener('beforeunload', () => {
+            stopStatePolling();
+        });
+
+        // Initialize to green state
+        updateArmState();
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            if (animationEnabled && armState !== 'red') {
+                // Normal operation (green and yellow states)
+                // Base rotation
+                joint1Group.rotation.y = Math.sin(time * 0.5) * 0.8;
+                
+                // Arm movements
+                arm1Group.rotation.z = Math.sin(time * 0.7) * 0.3 + 0.2;
+                joint2Group.rotation.z = Math.sin(time * 0.6) * 0.5;
+                arm2Group.rotation.z = Math.sin(time * 0.8) * 0.4;
+                wristGroup.rotation.x = Math.sin(time * 1.2) * 0.3;
+                wristGroup.rotation.y = Math.sin(time * 0.9) * 0.5;
+                
+                // Gripper animation (larger movement)
+                const gripperOpen = (Math.sin(time * 2) + 1) * 0.15;
+                finger1.position.x = 0.45 + gripperOpen;
+                finger2.position.x = -0.45 - gripperOpen;
+            } else if (armState === 'red' && armFallAnimation > 0) {
+                // Arm falling animation (powerless)
+                armFallAnimation += 0.02;
+                
+                // Gradually fall to ground with realistic physics
+                const fallProgress = Math.min(armFallAnimation, 1);
+                const easeOut = 1 - Math.pow(1 - fallProgress, 3); // Easing function
+                
+                // Fall down with gravity effect
+                joint1Group.rotation.y = originalRotations.joint1Y * (1 - easeOut);
+                arm1Group.rotation.z = originalRotations.arm1Z - easeOut * 1.2; // Fall down
+                joint2Group.rotation.z = originalRotations.joint2Z - easeOut * 0.8;
+                arm2Group.rotation.z = originalRotations.arm2Z - easeOut * 1.0;
+                wristGroup.rotation.x = originalRotations.wristX - easeOut * 0.5;
+                wristGroup.rotation.y = originalRotations.wristY * (1 - easeOut);
+                
+                // Close gripper when powerless
+                finger1.position.x = 0.45;
+                finger2.position.x = -0.45;
+            }
+
+            // Camera orbit
+            const radius = 12;
+            camera.position.x = Math.cos(targetX * Math.PI) * radius;
+            camera.position.z = Math.sin(targetX * Math.PI) * radius;
+            camera.position.y = 6 + targetY * 4;
+            camera.lookAt(0, 3, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        // Control functions
+        function toggleAnimation() {
+            animationEnabled = !animationEnabled;
+        }
+
+        function resetPosition() {
+            joint1Group.rotation.y = 0;
+            arm1Group.rotation.z = 0.2;
+            joint2Group.rotation.z = 0;
+            arm2Group.rotation.z = 0;
+            wristGroup.rotation.x = 0;
+            wristGroup.rotation.y = 0;
+            finger1.position.x = 0.3;
+            finger2.position.x = -0.3;
+        }
+
+        function exportModel() {
+            // This would export to GLTF format in a real application
+            alert('In a real application, this would export the robot arm as a GLTF file compatible with Blender.\n\nTo create your own:\n1. Model in Blender\n2. Export as GLTF/GLB\n3. Use THREE.GLTFLoader to load it\n4. Apply the same animation structure');
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
