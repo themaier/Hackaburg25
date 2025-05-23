@@ -86,6 +86,14 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+        // ==================== SUPABASE CONFIGURATION ====================
+        // Fill these in with your Supabase project details
+        const SUPABASE_URL = 'https://hbsqthjogpsxzxqqxwxb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhic3F0aGpvZ3BzeHp4cXF4d3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5NjAxOTksImV4cCI6MjA2MzUzNjE5OX0.pO96sMafqNuIwpBGuyVJjAzwjUnQgS1p1tRZcR1qO9M';
+        const TABLE_NAME = 'robot_states'; // Your table name
+        const STATE_COLUMN = 'state'; // Column that contains 'green', 'yellow', or 'red'
+        // =================================================================
+
         // Scene setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -297,7 +305,6 @@
         let animationEnabled = true;
         let time = 0;
         let armState = 'green'; // 'green', 'yellow', 'red'
-        let apiCallCount = 0;
         let armFallAnimation = 0;
         let originalRotations = {
             joint1Y: 0,
@@ -308,11 +315,56 @@
             wristY: 0
         };
 
-        // API Management Variables
+        // Supabase Management Variables
         let pollInterval;
         let isOnline = false;
 
-        // API State Management
+        // Supabase API functions
+        async function fetchRobotState() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=${STATE_COLUMN}&limit=1`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const newState = data[0][STATE_COLUMN];
+                    
+                    // Update online status
+                    if (!isOnline) {
+                        isOnline = true;
+                        console.log('Connected to Supabase');
+                    }
+                    
+                    // Only update if state changed
+                    if (newState !== armState && ['green', 'yellow', 'red'].includes(newState)) {
+                        armState = newState;
+                        updateArmState();
+                        console.log(`Robot state changed to: ${armState}`);
+                    }
+                } else {
+                    console.warn('No data received from Supabase');
+                }
+            } catch (error) {
+                console.error('Failed to fetch robot state:', error);
+                if (isOnline) {
+                    isOnline = false;
+                    console.log('Lost connection to Supabase');
+                }
+            }
+        }
+
+        // State Management
         function updateArmState() {
             switch(armState) {
                 case 'green':
@@ -358,147 +410,16 @@
 
         // Start polling for state changes
         function startStatePolling() {
-            // Poll every 2 seconds
-            pollInterval = setInterval(fetchCurrentState, 2000);
+            // Poll every 3 seconds
+            pollInterval = setInterval(fetchRobotState, 2000);
             // Fetch immediately
-            fetchCurrentState();
+            fetchRobotState();
         }
 
         // Stop polling
         function stopStatePolling() {
             if (pollInterval) {
                 clearInterval(pollInterval);
-            }
-        }
-
-        // Fetch current state from backend
-        async function fetchCurrentState() {
-            try {
-                const response = await fetch('/.netlify/functions/robot-state');
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Update online status
-                    if (!isOnline) {
-                        isOnline = true;
-                        updateConnectionStatus(true);
-                    }
-                    
-                    // Only update if state changed
-                    if (data.state !== armState) {
-                        armState = data.state;
-                        updateStatus(data.message);
-                        updateArmState();
-                    }
-                } else {
-                    throw new Error('API response not ok');
-                }
-            } catch (error) {
-                console.error('Failed to fetch state:', error);
-                if (isOnline) {
-                    isOnline = false;
-                    updateConnectionStatus(false);
-                    updateStatus('Connection Error - Using local state');
-                }
-            }
-        }
-
-        // Call API to change state
-        async function callAPI() {
-            try {
-                const response = await fetch('/.netlify/functions/robot-state', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ action: 'toggle' })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    armState = data.state;
-                    updateStatus(data.message);
-                    updateArmState();
-                    
-                    if (!isOnline) {
-                        isOnline = true;
-                        updateConnectionStatus(true);
-                    }
-                } else {
-                    throw new Error('API call failed');
-                }
-            } catch (error) {
-                console.error('API call failed:', error);
-                updateStatus('API Error - Check connection');
-                
-                if (isOnline) {
-                    isOnline = false;
-                    updateConnectionStatus(false);
-                }
-                
-                // Fallback to local state cycling
-                apiCallCount++;
-                if (apiCallCount === 1) {
-                    armState = 'yellow';
-                    updateStatus('Local Mode: Yellow State');
-                } else if (apiCallCount === 2) {
-                    armState = 'red';
-                    updateStatus('Local Mode: Red State');
-                } else {
-                    apiCallCount = 0;
-                    armState = 'green';
-                    updateStatus('Local Mode: Green State');
-                }
-                updateArmState();
-            }
-        }
-
-        // Add manual state controls
-        async function setRobotState(state) {
-            try {
-                const response = await fetch('/.netlify/functions/robot-state', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ action: state })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    armState = data.state;
-                    updateStatus(data.message);
-                    updateArmState();
-                    
-                    if (!isOnline) {
-                        isOnline = true;
-                        updateConnectionStatus(true);
-                    }
-                } else {
-                    throw new Error('Set state failed');
-                }
-            } catch (error) {
-                console.error('Failed to set state:', error);
-                updateStatus('Failed to set state - Connection error');
-                
-                if (isOnline) {
-                    isOnline = false;
-                    updateConnectionStatus(false);
-                }
-            }
-        }
-
-        function updateStatus(message) {
-            const statusElement = document.getElementById('api-status');
-            if (statusElement) {
-                statusElement.textContent = message;
-            }
-        }
-
-        function updateConnectionStatus(online) {
-            const connectionElement = document.getElementById('connection-status');
-            if (connectionElement) {
-                connectionElement.textContent = online ? '🟢 Online Mode' : '🔴 Offline Mode';
             }
         }
 
@@ -565,27 +486,6 @@
             camera.lookAt(0, 3, 0);
 
             renderer.render(scene, camera);
-        }
-
-        // Control functions
-        function toggleAnimation() {
-            animationEnabled = !animationEnabled;
-        }
-
-        function resetPosition() {
-            joint1Group.rotation.y = 0;
-            arm1Group.rotation.z = 0.2;
-            joint2Group.rotation.z = 0;
-            arm2Group.rotation.z = 0;
-            wristGroup.rotation.x = 0;
-            wristGroup.rotation.y = 0;
-            finger1.position.x = 0.3;
-            finger2.position.x = -0.3;
-        }
-
-        function exportModel() {
-            // This would export to GLTF format in a real application
-            alert('In a real application, this would export the robot arm as a GLTF file compatible with Blender.\n\nTo create your own:\n1. Model in Blender\n2. Export as GLTF/GLB\n3. Use THREE.GLTFLoader to load it\n4. Apply the same animation structure');
         }
 
         // Handle window resize
