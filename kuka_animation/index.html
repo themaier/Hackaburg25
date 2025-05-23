@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KUKA Robot Arm</title>
+    <title>Robot Arm</title>
     <style>
         body {
             margin: 0;
@@ -76,9 +76,9 @@
 <body>
     <div id="container">
         <div id="robot-info">
-            <h4 id="robot-name">Loading...</h4>
+            <h4 id="robot-name">No Robot Connected</h4>
             <div id="robot-details">
-                Loading robot data...
+                Waiting for connection...
             </div>
         </div>
         
@@ -454,6 +454,57 @@
             }
         }
 
+        // Update robot visibility based on connection status
+        function updateRobotVisibility(hasRobot) {
+            if (hasRobot) {
+                // Make all parts visible
+                joint1.material.opacity = 1;
+                joint1.material.transparent = false;
+                arm1.material.opacity = 1;
+                arm1.material.transparent = false;
+                joint2.material.opacity = 1;
+                joint2.material.transparent = false;
+                arm2.material.opacity = 1;
+                arm2.material.transparent = false;
+                wrist.material.opacity = 1;
+                wrist.material.transparent = false;
+                connector.material.opacity = 1;
+                connector.material.transparent = false;
+                gripperBaseMesh.material.opacity = 1;
+                gripperBaseMesh.material.transparent = false;
+                finger1.material.opacity = 1;
+                finger1.material.transparent = false;
+                finger2.material.opacity = 1;
+                finger2.material.transparent = false;
+            } else {
+                // Make all parts except base translucent
+                joint1.material.opacity = 0;
+                joint1.material.transparent = true;
+                arm1.material.opacity = 0;
+                arm1.material.transparent = true;
+                joint2.material.opacity = 0;
+                joint2.material.transparent = true;
+                arm2.material.opacity = 0;
+                arm2.material.transparent = true;
+                wrist.material.opacity = 0;
+                wrist.material.transparent = true;
+                connector.material.opacity = 0;
+                connector.material.transparent = true;
+                gripperBaseMesh.material.opacity = 0;
+                gripperBaseMesh.material.transparent = true;
+                finger1.material.opacity = 0;
+                finger1.material.transparent = true;
+                finger2.material.opacity = 0;
+                finger2.material.transparent = true;
+                
+                // Update info display
+                const nameElement = document.getElementById('robot-name');
+                nameElement.textContent = 'No Machine Connected';
+                const detailsDiv = document.getElementById('robot-details');
+                detailsDiv.innerHTML = 'Waiting for robot connection...';
+            }
+        }
+
         // Get available robots and select one dynamically
         async function getAvailableRobots() {
             try {
@@ -528,7 +579,7 @@
             }
         }
 
-        // Supabase API functions - FIXED VERSION
+        // Supabase API functions - UPDATED VERSION
         async function fetchRobotState() {
             try {
                 // Query for the latest robot state entry (any robot_id)
@@ -558,12 +609,24 @@
                         console.log('Connected to Supabase');
                     }
                     
-                    // Check if robot_id changed
+                    // Check if robot_id is null/None or changed
+                    if (robotId === null || robotId === undefined) {
+                        // No robot connected
+                        console.log('No robot connected (robot_id is null)');
+                        currentRobotId = null;
+                        updateRobotVisibility(false);
+                        armState = 'green'; // Reset to default state
+                        updateArmState();
+                        return;
+                    }
+                    
+                    // Robot is connected
                     if (robotId !== currentRobotId) {
                         console.log(`Robot ID changed from ${currentRobotId} to ${robotId}`);
                         currentRobotId = robotId;
-                        targetRobotId = robotId; // *** KEY FIX: Update the target robot ID ***
+                        targetRobotId = robotId;
                         await fetchRobotInfo(robotId);
+                        updateRobotVisibility(true);
                         console.log(`Now monitoring robot ID: ${robotId}`);
                     }
                     
@@ -575,6 +638,9 @@
                     }
                 } else {
                     console.warn('No state data received from Supabase');
+                    // No data available - show no robot connected
+                    currentRobotId = null;
+                    updateRobotVisibility(false);
                 }
             } catch (error) {
                 console.error('Failed to fetch robot state:', error);
@@ -582,6 +648,9 @@
                     isOnline = false;
                     console.log('Lost connection to Supabase');
                 }
+                // On error, show no robot connected
+                currentRobotId = null;
+                updateRobotVisibility(false);
             }
         }
 
@@ -646,8 +715,9 @@
 
         // Initialize polling when page loads
         window.addEventListener('load', async () => {
-            await getAvailableRobots(); // First, get available robots and select one
-            startStatePolling(); // Then start state polling
+            // Start with no robot connected state
+            updateRobotVisibility(false);
+            startStatePolling(); // Start state polling
         });
 
         // Clean up when page unloads
@@ -663,39 +733,50 @@
             requestAnimationFrame(animate);
             time += 0.01;
 
-            if (animationEnabled && armState !== 'red') {
-                // Normal operation (green and yellow states)
-                // Base rotation
-                joint1Group.rotation.y = Math.sin(time * 0.5) * 0.8;
-                
-                // Arm movements
-                arm1Group.rotation.z = Math.sin(time * 0.7) * 0.3 + 0.2;
-                joint2Group.rotation.z = Math.sin(time * 0.6) * 0.5;
-                arm2Group.rotation.z = Math.sin(time * 0.8) * 0.4;
-                wristGroup.rotation.x = Math.sin(time * 1.2) * 0.3;
-                wristGroup.rotation.y = Math.sin(time * 0.9) * 0.5;
-                
-                // Gripper animation (larger movement)
-                const gripperOpen = (Math.sin(time * 2) + 1) * 0.15;
-                finger1.position.x = 0.45 + gripperOpen;
-                finger2.position.x = -0.45 - gripperOpen;
-            } else if (armState === 'red' && armFallAnimation > 0) {
-                // Arm falling animation (powerless)
-                armFallAnimation += 0.02;
-                
-                // Gradually fall to ground with realistic physics
-                const fallProgress = Math.min(armFallAnimation, 1);
-                const easeOut = 1 - Math.pow(1 - fallProgress, 3); // Easing function
-                
-                // Fall down with gravity effect
-                joint1Group.rotation.y = originalRotations.joint1Y * (1 - easeOut);
-                arm1Group.rotation.z = originalRotations.arm1Z - easeOut * 1.2; // Fall down
-                joint2Group.rotation.z = originalRotations.joint2Z - easeOut * 0.8;
-                arm2Group.rotation.z = originalRotations.arm2Z - easeOut * 1.0;
-                wristGroup.rotation.x = originalRotations.wristX - easeOut * 0.5;
-                wristGroup.rotation.y = originalRotations.wristY * (1 - easeOut);
-                
-                // Close gripper when powerless
+            // Only animate if robot is connected
+            if (currentRobotId !== null && currentRobotId !== undefined) {
+                if (animationEnabled && armState !== 'red') {
+                    // Normal operation (green and yellow states)
+                    // Base rotation
+                    joint1Group.rotation.y = Math.sin(time * 0.5) * 0.8;
+                    
+                    // Arm movements
+                    arm1Group.rotation.z = Math.sin(time * 0.7) * 0.3 + 0.2;
+                    joint2Group.rotation.z = Math.sin(time * 0.6) * 0.5;
+                    arm2Group.rotation.z = Math.sin(time * 0.8) * 0.4;
+                    wristGroup.rotation.x = Math.sin(time * 1.2) * 0.3;
+                    wristGroup.rotation.y = Math.sin(time * 0.9) * 0.5;
+                    
+                    // Gripper animation (larger movement)
+                    const gripperOpen = (Math.sin(time * 2) + 1) * 0.15;
+                    finger1.position.x = 0.45 + gripperOpen;
+                    finger2.position.x = -0.45 - gripperOpen;
+                } else if (armState === 'red' && armFallAnimation > 0) {
+                    // Arm falling animation (powerless)
+                    armFallAnimation += 0.02;
+                    
+                    // Gradually fall to ground with realistic physics
+                    const fallProgress = Math.min(armFallAnimation, 1);
+                    const easeOut = 1 - Math.pow(1 - fallProgress, 3); // Easing function
+                    
+                    // Fall down with gravity effect
+                    joint1Group.rotation.y = originalRotations.joint1Y * (1 - easeOut);
+                    arm1Group.rotation.z = originalRotations.arm1Z - easeOut * 1.2; // Fall down
+                    joint2Group.rotation.z = originalRotations.joint2Z - easeOut * 0.8;
+                    arm2Group.rotation.z = originalRotations.arm2Z - easeOut * 1.0;
+                    wristGroup.rotation.x = originalRotations.wristX - easeOut * 0.5;
+                    wristGroup.rotation.y = originalRotations.wristY * (1 - easeOut);
+                    finger1.position.x = 0.45;
+                    finger2.position.x = -0.45;
+                }
+            } else {
+                // No robot connected - reset to neutral position
+                joint1Group.rotation.y = 0;
+                arm1Group.rotation.z = 0.2;
+                joint2Group.rotation.z = 0;
+                arm2Group.rotation.z = 0;
+                wristGroup.rotation.x = 0;
+                wristGroup.rotation.y = 0;
                 finger1.position.x = 0.45;
                 finger2.position.x = -0.45;
             }
