@@ -137,6 +137,13 @@
         });
         
         const grayMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x888888, // Lighter gray for better visibility
+            shininess: 50
+        });
+
+        // Create separate gray materials for parts that will become translucent
+        const joint2Material = new THREE.MeshPhongMaterial({ 
+            color: 0x888888,
             color: 0x404040,
             shininess: 50
         });
