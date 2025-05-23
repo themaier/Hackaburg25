@@ -100,6 +100,7 @@
         const ROBOT_INFO_TABLE = 'robot_info';
         const ROBOT_STATE_TABLE = 'robot_state';
         const DEFAULT_ROBOT_ID = 1; // Default robot ID to start with
+        const DEVICE_ID = 1; // Device ID to monitor in robot_state table
         // =================================================================
 
         // Scene setup
@@ -419,6 +420,7 @@
                 return targetRobotId;
             }
         }
+
         async function fetchRobotInfo(robotId) {
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_INFO_TABLE}?select=*&id=eq.${robotId}`, {
@@ -449,10 +451,11 @@
             }
         }
 
-        // Supabase API functions
+        // Supabase API functions - FIXED VERSION
         async function fetchRobotState() {
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state,robot_id&robot_id=eq.${targetRobotId}&limit=1`, {
+                // Query for the latest robot state entry (any robot_id)
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${ROBOT_STATE_TABLE}?select=state,robot_id&order=id.desc&limit=1`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -478,11 +481,13 @@
                         console.log('Connected to Supabase');
                     }
                     
-                    // If robot_id changed or first time loading, fetch robot info
+                    // Check if robot_id changed
                     if (robotId !== currentRobotId) {
+                        console.log(`Robot ID changed from ${currentRobotId} to ${robotId}`);
                         currentRobotId = robotId;
+                        targetRobotId = robotId; // *** KEY FIX: Update the target robot ID ***
                         await fetchRobotInfo(robotId);
-                        console.log(`Robot ID loaded: ${robotId}`);
+                        console.log(`Now monitoring robot ID: ${robotId}`);
                     }
                     
                     // Only update if state changed
@@ -492,7 +497,7 @@
                         console.log(`Robot state changed to: ${armState}`);
                     }
                 } else {
-                    console.warn('No state data received from Supabase for robot ID:', targetRobotId);
+                    console.warn('No state data received from Supabase');
                 }
             } catch (error) {
                 console.error('Failed to fetch robot state:', error);
