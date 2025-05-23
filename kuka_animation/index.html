@@ -19,7 +19,7 @@
             height: 100vh;
         }
         
-        #controls {
+        #robot-info {
             position: absolute;
             top: 20px;
             left: 20px;
@@ -28,21 +28,11 @@
             padding: 15px;
             border-radius: 10px;
             z-index: 100;
+            font-size: 12px;
+            min-width: 200px;
         }
         
-        #info {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 10px;
-            z-index: 100;
-            font-size: 14px;
-        }
-
-        #robot-info {
+        #controls {
             position: absolute;
             top: 20px;
             right: 20px;
@@ -51,8 +41,6 @@
             padding: 15px;
             border-radius: 10px;
             z-index: 100;
-            font-size: 12px;
-            min-width: 200px;
         }
         
         button {
@@ -81,26 +69,20 @@
 </head>
 <body>
     <div id="container">
-        <div id="controls">
-            <h3>KUKA Robot Arm</h3>
-            <div style="margin-top: 10px; font-size: 12px;">
-                <strong>Status:</strong><br>
-                🟢 Green: OK<br>
-                🟡 Yellow: DDOS started<br>
-                🔴 Red: DDOS successful
-            </div>
-        </div>
-        
         <div id="robot-info">
-            <h4>Robot Information</h4>
+            <h4 id="robot-name">Loading...</h4>
             <div id="robot-details">
                 Loading robot data...
             </div>
         </div>
         
-        <div id="info">
-            <strong>KUKA Robot Arm</strong><br>
-            Mouse: Orbit camera | Scroll: Zoom
+        <div id="controls">
+            <h3>Status</h3>
+            <div style="margin-top: 10px; font-size: 12px;">
+                🟢 Green: OK<br>
+                🟡 Yellow: DDOS started<br>
+                🔴 Red: DDOS successful
+            </div>
         </div>
     </div>
 
@@ -370,16 +352,19 @@
 
         // Update robot info display
         function updateRobotInfoDisplay(robotInfo) {
+            const nameElement = document.getElementById('robot-name');
             const detailsDiv = document.getElementById('robot-details');
+            
             if (robotInfo) {
+                nameElement.textContent = robotInfo.name || 'Robot Arm';
                 detailsDiv.innerHTML = `
-                    <strong>Name:</strong> ${robotInfo.name || 'N/A'}<br>
                     <strong>Color:</strong> ${robotInfo.color || 'N/A'}<br>
                     <strong>Controller:</strong> ${robotInfo.mirco_controller || 'N/A'}<br>
                     <strong>OS:</strong> ${robotInfo.os || 'N/A'}<br>
                     <strong>Info:</strong> ${robotInfo.info || 'N/A'}
                 `;
             } else {
+                nameElement.textContent = 'Robot Arm';
                 detailsDiv.innerHTML = 'No robot data available';
             }
         }
