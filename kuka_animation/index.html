@@ -862,7 +862,7 @@
         // Start polling for state changes
         function startStatePolling() {
             // Poll every 2 seconds
-            pollInterval = setInterval(fetchRobotState, 1000);
+            pollInterval = setInterval(fetchRobotState, 300);
             // Fetch immediately
             fetchRobotState();
         }
